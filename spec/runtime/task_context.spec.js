@@ -1,25 +1,24 @@
-var _      = require('lodash'),
-    moment = require('moment');
+var moment = require('moment');
 
-var TaskContext = require_src('runtime/task_context'),
-    models      = require_src('models');
+var TaskContext = require('runtime/task_context'),
+    models      = require('models');
 
 describe('TaskContext', function() {
   var mockPeriodBuilder;
 
   beforeEach(function() {
     mockPeriodBuilder = {};
-    _.each(['from', 'to', 'split'], function(fn) {
-      mockPeriodBuilder[fn] = jasmine.createSpy().and.returnValue(mockPeriodBuilder);
+    ['from', 'to', 'split'].forEach(function(fn) {
+      mockPeriodBuilder[fn] = jest.fn().mockReturnThis();
     });
-    mockPeriodBuilder.build = jasmine.createSpy().and.returnValue([
+    mockPeriodBuilder.build = jest.fn().mockReturnValue([
       new models.TimePeriod({ start: moment('2014-03-01'), end: moment('2014-07-31') }, 'YYYY-MM'),
       new models.TimePeriod({ start: moment('2014-08-01'), end: moment('2014-12-31') }, 'YYYY-MM')
     ]);
 
-    spyOn(models, 'TimeIntervalBuilder').and.returnValue(mockPeriodBuilder);
-    spyOn(models, 'Repository').and.returnValue({ obj: 'test-repo' });
-    spyOn(models, 'DeveloperInfo').and.returnValue({ obj: 'test-devInfo' });
+    models.TimeIntervalBuilder = jest.fn().mockImplementation(function() { return mockPeriodBuilder; });
+    models.Repository = jest.fn().mockImplementation(function() { return { obj: 'test-repo' }; });
+    models.DevelopersInfo = jest.fn().mockImplementation(function() { return { obj: 'test-devInfo' }; });
   });
 
   it('initialises the repository configuration', function() {
@@ -32,15 +31,15 @@ describe('TaskContext', function() {
   it('initialises the developer information', function() {
     var ctx = new TaskContext({ contributors: 'team-config' });
 
-    expect(models.DeveloperInfo).toHaveBeenCalledWith('team-config');
-    expect(ctx.developerInfo).toEqual({ obj: 'test-devInfo' });
+    expect(models.DevelopersInfo).toHaveBeenCalledWith('team-config');
+    expect(ctx.developersInfo).toEqual({ obj: 'test-devInfo' });
   });
 
   describe('time periods configuration', function() {
     it('creates the time periods and a date range with a given date format', function() {
       var ctx = new TaskContext({ dateFormat: 'YYYY-MM' }, { dateFrom: 'test-date1', dateTo: 'test-date2', timeSplit: 'test-timeSplit' });
 
-      expect(ctx.timePeriods.length).toEqual(2);
+      expect(ctx.timePeriods).toHaveLength(2);
       expect(ctx.timePeriods[0].toString()).toEqual('2014-03_2014-07');
       expect(ctx.timePeriods[1].toString()).toEqual('2014-08_2014-12');
 
@@ -55,7 +54,7 @@ describe('TaskContext', function() {
     it('creates the time periods and a date range with the default date format', function() {
       var ctx = new TaskContext(undefined, { dateFrom: 'test-date1', dateTo: 'test-date2', timeSplit: 'test-timeSplit' });
 
-      expect(ctx.timePeriods.length).toEqual(2);
+      expect(ctx.timePeriods).toHaveLength(2);
       expect(ctx.timePeriods[0].toString()).toEqual('2014-03_2014-07');
       expect(ctx.timePeriods[1].toString()).toEqual('2014-08_2014-12');
 
@@ -65,10 +64,10 @@ describe('TaskContext', function() {
     });
   });
 
-  it('throws an error for a non supported configuration language', function() {
-    expect(function() {
-      new TaskContext({ languages: ['javascript', 'ruby', 'some-weird-language'] });
-    }).toThrowError(models.CFValidationError, 'Language "some-weird-language" is not supported');
+  it('removes any unsupported configuration language', function() {
+      var ctx = new TaskContext({ languages: ['javascript', 'ruby', 'some-weird-language'] });
+
+      expect(ctx.languages).toEqual(['javascript', 'ruby']);
   });
 
   describe('exposed configuration values', function() {
@@ -95,7 +94,7 @@ describe('TaskContext', function() {
       expect(ctx.outputDir).toMatch('/output');
       expect(ctx.layerGrouping.isEmpty()).toBe(true);
       expect(ctx.commitMessageFilters).toBeUndefined();
-      expect(ctx.languages).toEqual(['javascript']);
+      expect(ctx.languages).toEqual([]);
     });
   });
 

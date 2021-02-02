@@ -1,6 +1,6 @@
 /*
  * code-forensics
- * Copyright (C) 2016-2017 Silvio Montanari
+ * Copyright (C) 2016-2019 Silvio Montanari
  * Distributed under the GNU General Public License v3.0
  * see http://www.gnu.org/licenses/gpl.html
  */
@@ -52,7 +52,7 @@
 .circle-packing-diagram {
   background-color: #333333;
 
-  &#hotspot-analysis-sourceLines, &#hotspot-analysis-totalComplexity, &.temporal-coupling {
+  &#hotspot-analysis-sloc, &#hotspot-analysis-complexity, &.temporal-coupling {
     .node {
       .hierarchical-node-mixin;
     }
@@ -67,7 +67,7 @@
     }
   }
 
-  &#knowledge-map-developer, &#knowledge-map-team {
+  &#individual-knowledge-map, &#team-knowledge-map {
     .node {
       .hierarchical-node-mixin;
     }
@@ -76,7 +76,7 @@
     }
   }
 
-  &#developer-coupling {
+  &#main-developer-coupling {
     font-size: 10px;
     .node {
       .node-mixin;

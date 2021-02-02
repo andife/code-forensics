@@ -1,40 +1,51 @@
-var stream = require('stream');
+var stream   = require('stream'),
+    Bluebird = require('bluebird');
 
-var FlogAnalyser = require_src('analysers/flog/flog_analyser'),
-    command      = require_src('command');
+var FlogAnalyser = require('analysers/flog/flog_analyser'),
+    command      = require('command');
 
 describe('flog command definition', function() {
+  var subject, mockCheck;
   beforeEach(function() {
-    this.subject = command.Command.definitions.getDefinition('flog');
-    this.mockCheck = jasmine.createSpyObj('check', ['verifyExecutable', 'verifyPackage']);
+    subject = command.Command.definitions.getDefinition('flog');
+    mockCheck = {
+      verifyExecutable: jest.fn(),
+      verifyPackage: jest.fn()
+    };
   });
 
   it('defines the "flog" command', function() {
-    expect(this.subject).toEqual(jasmine.anything());
+    expect(subject).toEqual({
+      cmd: 'flog',
+      args: [ '-a' ],
+      installCheck: expect.any(Function)
+    });
   });
 
   it('checks the executable', function() {
-    this.subject.installCheck.apply(this.mockCheck);
+    subject.installCheck.apply(mockCheck);
 
-    expect(this.mockCheck.verifyExecutable).toHaveBeenCalledWith('ruby', jasmine.any(String));
+    expect(mockCheck.verifyExecutable).toHaveBeenCalledWith('ruby', expect.any(String));
   });
 
   it('checks the flog gem', function() {
-    this.subject.installCheck.apply(this.mockCheck);
+    subject.installCheck.apply(mockCheck);
 
-    expect(this.mockCheck.verifyPackage).toHaveBeenCalledWith(jasmine.stringMatching(/gem list flog -i -v/), 'true', jasmine.any(String));
+    expect(mockCheck.verifyPackage).toHaveBeenCalledWith(
+      expect.stringMatching(/gem list flog -i/), 'true',
+      expect.any(String)
+    );
   });
 });
 
 describe('FlogAnalyser', function() {
-  var flogParser;
+  var subject;
   beforeEach(function() {
-    spyOn(command.Command, 'ensure');
-    flogParser = jasmine.createSpyObj('FlogParser', ['read']);
-    flogParser.read.and.callFake(function(report) {
-      return {flog: report};
-    });
-    this.subject = new FlogAnalyser(flogParser);
+    command.Command.ensure = jest.fn();
+    var flogParser = {
+      read: function(report) { return {flog: report}; }
+    };
+    subject = new FlogAnalyser(flogParser);
   });
 
   it('ensures the flog command is installed', function() {
@@ -43,108 +54,116 @@ describe('FlogAnalyser', function() {
 
   describe('.fileAnalysisStream()', function() {
     describe('without any transformation', function() {
-      it('parses and streams results from the flog command applied to a file', function(done) {
-        var commadStream = new stream.PassThrough();
-        spyOn(command, 'stream').and.returnValue(commadStream);
-        var report;
+      it('parses and streams results from the flog command applied to a file', function() {
+        return new Bluebird(function(done) {
+          var commadStream = new stream.PassThrough();
+          command.stream = jest.fn().mockReturnValue(commadStream);
+          var report;
 
-        this.subject.fileAnalysisStream('test/file')
-        .on('data', function(data) {
-          report = data;
-        })
-        .on('finish', function() {
-          expect(command.stream).toHaveBeenCalledWith('flog', ['test/file']);
-          expect(report).toEqual({ path: 'test/file', flog: 'complexity report' });
-          done();
+          subject.fileAnalysisStream('test/file')
+          .on('data', function(data) {
+            report = data;
+          })
+          .on('finish', function() {
+            expect(command.stream).toHaveBeenCalledWith('flog', ['test/file']);
+            expect(report).toEqual({ path: 'test/file', flog: 'complexity report' });
+            done();
+          });
+
+          commadStream.write('complexity report');
+          commadStream.end();
         });
-
-        commadStream.write('complexity report');
-        commadStream.end();
       });
     });
 
     describe('with a transformation applied to the report', function() {
-      it('parses and streams results from the flog command applied to a file and tranforms the end report', function(done) {
-        var commadStream = new stream.PassThrough();
-        spyOn(command, 'stream').and.returnValue(commadStream);
-        var report;
+      it('parses and streams results from the flog command applied to a file and tranforms the end report', function() {
+        return new Bluebird(function(done) {
+          var commadStream = new stream.PassThrough();
+          command.stream = jest.fn().mockReturnValue(commadStream);
+          var report;
 
-        this.subject.fileAnalysisStream('test/file', function(report) { return { test: 'some value', result: report.flog }; })
-        .on('data', function(data) {
-          report = data;
-        })
-        .on('finish', function() {
-          expect(command.stream).toHaveBeenCalledWith('flog', ['test/file']);
-          expect(report).toEqual({ test: 'some value', result: 'complexity report' });
-          done();
+          subject.fileAnalysisStream('test/file', function(report) { return { test: 'some value', result: report.flog }; })
+          .on('data', function(data) {
+            report = data;
+          })
+          .on('finish', function() {
+            expect(command.stream).toHaveBeenCalledWith('flog', ['test/file']);
+            expect(report).toEqual({ test: 'some value', result: 'complexity report' });
+            done();
+          });
+
+          commadStream.write('complexity report');
+          commadStream.end();
         });
-
-        commadStream.write('complexity report');
-        commadStream.end();
       });
     });
   });
 
   describe('.sourceAnalysisStream()', function() {
     describe('without any transformation', function() {
-      it('parses and streams results from the flog command applied to an input stream', function(done) {
-        var commandProcess = { stdin: new stream.PassThrough(), stdout: new stream.PassThrough() };
-        spyOn(command, 'create').and.returnValue({ asyncProcess: function() { return commandProcess; } });
-        var report;
+      it('parses and streams results from the flog command applied to an input stream', function() {
+        return new Bluebird(function(done) {
+          var commandProcess = { stdin: new stream.PassThrough(), stdout: new stream.PassThrough() };
+          command.createAsync = jest.fn().mockReturnValue(commandProcess);
+          var report;
 
-        commandProcess.stdin
-        .on('data', function(data) {
-          expect(data.toString()).toEqual('test content');
-          commandProcess.stdout.write('complexity report');
-        })
-        .on('end', function() {
-          commandProcess.stdout.end();
+          commandProcess.stdin
+          .on('data', function(data) {
+            expect(data.toString()).toEqual('test content');
+            commandProcess.stdout.write('complexity report');
+          })
+          .on('end', function() {
+            commandProcess.stdout.end();
+          });
+
+          var inputStream = new stream.PassThrough();
+          inputStream.pipe(subject.sourceAnalysisStream('test/file'))
+          .on('data', function(data) {
+            report = data;
+          })
+          .on('end', function() {
+            expect(report).toEqual({ path: 'test/file', flog: 'complexity report' });
+            expect(command.createAsync).toHaveBeenCalledWith('flog', []);
+            done();
+          });
+
+          inputStream.write('test content');
+          inputStream.end();
         });
-
-        var inputStream = new stream.PassThrough();
-        inputStream.pipe(this.subject.sourceAnalysisStream('test/file'))
-        .on('data', function(data) {
-          report = data;
-        })
-        .on('end', function() {
-          expect(report).toEqual({ path: 'test/file', flog: 'complexity report' });
-          expect(command.create).toHaveBeenCalledWith('flog', []);
-          done();
-        });
-
-        inputStream.write('test content');
-        inputStream.end();
       });
     });
 
     describe('with a transformation applied to the report', function() {
-      it('parses and streams results from the flog command applied to a stream and tranforms the end report', function(done) {
-        var commandProcess = { stdin: new stream.PassThrough(), stdout: new stream.PassThrough() };
-        spyOn(command, 'create').and.returnValue({ asyncProcess: function() { return commandProcess; } });
-        var report;
+      it('parses and streams results from the flog command applied to a stream and tranforms the end report', function() {
+        return new Bluebird(function(done) {
+          var commandProcess = { stdin: new stream.PassThrough(), stdout: new stream.PassThrough() };
+          command.createAsync = jest.fn().mockReturnValue(commandProcess);
+          var report;
 
-        commandProcess.stdin
-        .on('data', function(data) {
-          expect(data.toString()).toEqual('test content');
-          commandProcess.stdout.write('complexity report');
-        })
-        .on('end', function() {
-          commandProcess.stdout.end();
+          commandProcess.stdin
+          .on('data', function(data) {
+            expect(data.toString()).toEqual('test content');
+            commandProcess.stdout.write('complexity report');
+          })
+          .on('end', function() {
+            commandProcess.stdout.end();
+          });
+
+          var inputStream = new stream.PassThrough();
+          inputStream.pipe(subject.sourceAnalysisStream('test/file', function(report) { return { test: 'some value', result: report.flog }; }))
+          .on('data', function(data) {
+            report = data;
+          })
+          .on('end', function() {
+            expect(report).toEqual({ test: 'some value', result: 'complexity report' });
+            expect(command.createAsync).toHaveBeenCalledWith('flog', []);
+            done();
+          });
+
+          inputStream.write('test content');
+          inputStream.end();
         });
-
-        var inputStream = new stream.PassThrough();
-        inputStream.pipe(this.subject.sourceAnalysisStream('test/file', function(report) { return { test: 'some value', result: report.flog }; }))
-        .on('data', function(data) {
-          report = data;
-        })
-        .on('end', function() {
-          expect(report).toEqual({ test: 'some value', result: 'complexity report' });
-          expect(command.create).toHaveBeenCalledWith('flog', []);
-          done();
-        });
-
-        inputStream.write('test content');
-        inputStream.end();
       });
     });
   });

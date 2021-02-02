@@ -1,11 +1,13 @@
 var _ = require('lodash');
 
-var WeightedCollection = require_src('graph_support/weighted_collection');
+var WeightedCollection = require('graph_support/weighted_collection');
 
 describe('WeightedCollection', function() {
   describe('empty collection', function() {
     it('does nothing', function() {
-      new WeightedCollection('value').assignWeights();
+      expect(
+        function() { new WeightedCollection('value').assignWeights(); }
+      ).not.toThrow();
     });
   });
 
@@ -23,10 +25,10 @@ describe('WeightedCollection', function() {
       describe('not normalised collection', function() {
         it('assigns the weights corresponding to the property value', function() {
           var wcoll = new WeightedCollection('value');
-          _.each(collection, wcoll.addItem.bind(wcoll));
+          collection.forEach(wcoll.addItem.bind(wcoll));
           wcoll.assignWeights();
 
-          _.each([2, 5, 7], function(value, idx) {
+          [2, 5, 7].forEach(function(value, idx) {
             expect(collection[idx].weight).toEqual(value);
           });
         });
@@ -35,10 +37,10 @@ describe('WeightedCollection', function() {
       describe('normalised collection', function() {
         it('assigns the weights corresponding to the property value', function() {
           var wcoll = new WeightedCollection('value', true);
-          _.each(collection, wcoll.addItem.bind(wcoll));
+          collection.forEach(wcoll.addItem.bind(wcoll));
           wcoll.assignWeights('testWeight');
 
-          _.each([0.286, 0.714, 1.0], function(value, idx) {
+          [0.286, 0.714, 1.0].forEach(function(value, idx) {
             expect(collection[idx].testWeight).toBeCloseTo(value, 3);
           });
         });
@@ -49,10 +51,10 @@ describe('WeightedCollection', function() {
       describe('not normalised collection', function() {
         it('assigns the weights corresponding to the property value', function() {
           var wcoll = new WeightedCollection(function(item) { return item.value + 1; }, false);
-          _.each(collection, wcoll.addItem.bind(wcoll));
+          collection.forEach(wcoll.addItem.bind(wcoll));
           wcoll.assignWeights('a_weight');
 
-          _.each([3, 6, 8], function(value, idx) {
+          [3, 6, 8].forEach(function(value, idx) {
             expect(collection[idx].a_weight).toEqual(value);
           });
         });
@@ -61,10 +63,10 @@ describe('WeightedCollection', function() {
       describe('normalised collection', function() {
         it('assigns the weights corresponding to the property value', function() {
           var wcoll = new WeightedCollection(function(item) { return item.value + 1; }, true);
-          _.each(collection, wcoll.addItem.bind(wcoll));
+          collection.forEach(wcoll.addItem.bind(wcoll));
           wcoll.assignWeights();
 
-          _.each([0.375, 0.75, 1.0], function(value, idx) {
+          [0.375, 0.75, 1.0].forEach(function(value, idx) {
             expect(collection[idx].weight).toBeCloseTo(value, 3);
           });
         });
@@ -74,8 +76,9 @@ describe('WeightedCollection', function() {
     describe('when the weight cannot be determined', function() {
       it('assigns a value of 0 to every item in the collection', function() {
         var wcoll = new WeightedCollection('wrongProperty');
-        _.each(collection, wcoll.addItem.bind(wcoll));
+        collection.forEach(wcoll.addItem.bind(wcoll));
         wcoll.assignWeights();
+
         expect(_.every(collection, { 'weight': 0 })).toBe(true);
       });
     });

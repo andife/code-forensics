@@ -1,11 +1,12 @@
-var DeveloperDataHelper = require_src('tasks/helpers/developer_data_helper'),
-    DeveloperInfo       = require_src('models/developer_info');
+var DeveloperDataHelper = require('tasks/helpers/developer_data_helper'),
+    DevelopersInfo      = require('models/developers_info');
 
 describe('DeveloperDataHelper', function() {
+  var subject;
   describe('when team information exists', function() {
     beforeEach(function() {
-      this.subject = new DeveloperDataHelper({
-        developerInfo: new DeveloperInfo({
+      subject = new DeveloperDataHelper({
+        developersInfo: new DevelopersInfo({
           'Team 1': [['Dev1', 'Alias Dev1'], 'Dev2'],
           'Team 2': ['Dev3', 'Dev4']
         })
@@ -24,7 +25,7 @@ describe('DeveloperDataHelper', function() {
       ];
 
       it('returns the data aggregated by individual author and sorted by ownership', function() {
-        expect(this.subject.aggregateIndividualEffortOwnership(testData)).toEqual([
+        expect(subject.aggregateIndividualEffortOwnership(testData)).toEqual([
           {
             path: 'test/file1', authors: [
               { name: 'Dev1', revisions: 5, ownership: 63 },
@@ -43,7 +44,7 @@ describe('DeveloperDataHelper', function() {
       });
 
       it('returns the data aggregated by team and sorted by ownership', function() {
-        expect(this.subject.aggregateTeamEffortOwnership(testData)).toEqual([
+        expect(subject.aggregateTeamEffortOwnership(testData)).toEqual([
           {
             path: 'test/file1', teams: [
               { name: 'Team 1', revisions: 7, ownership: 88 },
@@ -76,7 +77,7 @@ describe('DeveloperDataHelper', function() {
       ];
 
       it('returns the data aggregated by individual author and sorted by ownership', function() {
-        expect(this.subject.aggregateIndividualCodeOwnership(testData)).toEqual([
+        expect(subject.aggregateIndividualCodeOwnership(testData)).toEqual([
           {
             path: 'test/file1', authors: [
               { name: 'Dev1', addedLines: 5, ownership: 63 },
@@ -106,7 +107,7 @@ describe('DeveloperDataHelper', function() {
       });
 
       it('returns the data aggregated by team and sorted by ownership', function() {
-        expect(this.subject.aggregateTeamCodeOwnership(testData)).toEqual([
+        expect(subject.aggregateTeamCodeOwnership(testData)).toEqual([
           {
             path: 'test/file1', teams: [
               { name: 'Team 1', addedLines: 8, ownership: 100 }
@@ -136,8 +137,8 @@ describe('DeveloperDataHelper', function() {
 
   describe('when no team information exists', function() {
     beforeEach(function() {
-      this.subject = new DeveloperDataHelper({
-        developerInfo: new DeveloperInfo([['Dev1', 'Alias Dev1'], 'Dev2', 'Dev3', 'Dev4'])
+      subject = new DeveloperDataHelper({
+        developersInfo: new DevelopersInfo([['Dev1', 'Alias Dev1'], 'Dev2', 'Dev3', 'Dev4'])
       });
     });
 
@@ -153,7 +154,7 @@ describe('DeveloperDataHelper', function() {
       ];
 
       it('returns the data aggregated by individual author and sorted by ownership', function() {
-        expect(this.subject.aggregateIndividualEffortOwnership(testData)).toEqual([
+        expect(subject.aggregateIndividualEffortOwnership(testData)).toEqual([
           {
             path: 'test/file1', authors: [
               { name: 'Dev1', revisions: 5, ownership: 63 },
@@ -172,7 +173,7 @@ describe('DeveloperDataHelper', function() {
       });
 
       it('returns undefined data aggregated by team', function() {
-        expect(this.subject.aggregateTeamEffortOwnership(testData)).toBeUndefined();
+        expect(subject.aggregateTeamEffortOwnership(testData)).toBeUndefined();
       });
     });
 
@@ -191,7 +192,7 @@ describe('DeveloperDataHelper', function() {
       ];
 
       it('returns the data aggregated by individual author and sorted by ownership', function() {
-        expect(this.subject.aggregateIndividualCodeOwnership(testData)).toEqual([
+        expect(subject.aggregateIndividualCodeOwnership(testData)).toEqual([
           {
             path: 'test/file1', authors: [
               { name: 'Dev1', addedLines: 5, ownership: 63 },
@@ -221,7 +222,7 @@ describe('DeveloperDataHelper', function() {
       });
 
       it('returns undefined data aggregated by team', function() {
-        expect(this.subject.aggregateTeamCodeOwnership(testData)).toBeUndefined();
+        expect(subject.aggregateTeamCodeOwnership(testData)).toBeUndefined();
       });
     });
   });

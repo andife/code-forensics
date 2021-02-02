@@ -1,4 +1,4 @@
-var DefinitionsArchive = require_src('utils').DefinitionsArchive;
+var DefinitionsArchive = require('utils').DefinitionsArchive;
 
 describe('utils.DefinitionsArchive', function() {
   it('archives definitions', function() {

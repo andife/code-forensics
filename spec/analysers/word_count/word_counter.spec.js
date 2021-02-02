@@ -1,4 +1,4 @@
-var WordCounter = require_src('analysers/word_count/word_counter');
+var WordCounter = require('analysers/word_count/word_counter');
 
 describe('WordCounter', function() {
   it('returns a report of all words count ordered by the highest value', function() {

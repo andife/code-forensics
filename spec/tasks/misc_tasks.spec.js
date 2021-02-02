@@ -1,10 +1,13 @@
-var Path = require('path'),
-    fs   = require('fs');
+/* eslint-disable jest/expect-expect */
+var Bluebird = require('bluebird');
 
-var miscTasks = require_src('tasks/misc_tasks');
+var miscTasks = require('tasks/misc_tasks');
+
+var taskHelpers = require('../jest_tasks_helpers');
 
 describe('Misc Tasks', function() {
-  describe('generate-layer-grouping-file', function() {
+  describe('generate-layer-grouping-files', function() {
+    var runtime;
     var contextConfig = {
       layerGroups: {
         'test_group': [
@@ -15,40 +18,61 @@ describe('Misc Tasks', function() {
     };
 
     afterEach(function() {
-      this.clearTemp();
+      return runtime.clear();
     });
 
     describe('with the layer group parameter', function() {
-      it('generates a layer grouping file', function(done) {
-        var tempDir = this.tasksWorkingFolders.tempDir;
+      var assertLayerFiles = function(taskOutput) {
+        return Bluebird.all([
+          taskOutput.assertTempFile('layer-groups.txt'),
+          taskOutput.assertTempFile('layer-group-test-layer-1.txt'),
+          taskOutput.assertTempFile('layer-group-test-layer-2.txt')
+        ]);
+      };
 
-        var taskFunctions = this.tasksSetup(miscTasks, contextConfig, { layerGroup: 'test_group' });
-        taskFunctions['generate-layer-grouping-file']().then(function() {
-          var fileContent = fs.readFileSync(Path.join(tempDir, 'layer-grouping.txt'));
-          expect(fileContent.toString()).toEqual([
-            'test/path1 => Test Layer1',
-            '^test\\/path2\\/((?!.*--abc\\.)).*\\/files$ => Test Layer1',
-            'test_path3 => Test Layer2',
-            '^test\\/path4\\/.*\\.cf$ => Test Layer2'
-          ].join("\n"));
+      beforeEach(function() {
+        runtime = taskHelpers.createRuntime('misc_tasks', miscTasks, contextConfig, { layerGroup: 'test_group' });
+      });
 
-          done();
-        }).catch(function(err) {
-          fail(err);
+      describe('as a Task', function() {
+        it('generates layer grouping files', function() {
+          return runtime.executePromiseTask('generate-layer-grouping-files')
+            .then(assertLayerFiles);
+        });
+      });
+
+      describe('as a Function', function() {
+        it('generates layer grouping files', function() {
+          return runtime.executePromiseFunction('generateLayerGroupingFiles')
+            .then(assertLayerFiles);
         });
       });
     });
 
     describe('with no layer group parameter', function() {
-      it('does not generate a layer grouping file', function(done) {
-        var tempDir = this.tasksWorkingFolders.tempDir;
+      var assertNoLayerFiles = function(taskOutput) {
+        return taskOutput.assertMissingTempReports([
+          'layer-groups.txt',
+          'layer-group-test-layer-1.txt',
+          'layer-group-test-layer-2.txt'
+        ]);
+      };
 
-        var taskFunctions = this.tasksSetup(miscTasks, contextConfig);
-        taskFunctions['generate-layer-grouping-file']().then(function() {
-          expect(fs.existsSync(Path.join(tempDir, 'layer-grouping.txt'))).toBeFalsy();
-          done();
-        }).catch(function(err) {
-          fail(err);
+      beforeEach(function() {
+        runtime = taskHelpers.createRuntime('misc_tasks', miscTasks, contextConfig);
+      });
+
+      describe('as a Task', function() {
+        it('does not generate layer grouping files', function() {
+          return runtime.executePromiseTask('generate-layer-grouping-files')
+            .then(assertNoLayerFiles);
+        });
+      });
+
+      describe('as a Function', function() {
+        it('does not generate a layer grouping file', function() {
+          return runtime.executePromiseFunction('generateLayerGroupingFiles')
+            .then(assertNoLayerFiles);
         });
       });
     });

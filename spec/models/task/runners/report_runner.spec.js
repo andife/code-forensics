@@ -1,89 +1,107 @@
-var stream = require('stream'),
-    Q      = require('q');
+var stream   = require('stream'),
+    Bluebird = require('bluebird');
 
-var ReportRunner = require_src('models/task/runners/report_runner'),
-    reporting    = require_src('reporting');
+var ReportRunner = require('models/task/runners/report_runner'),
+    reporting    = require('reporting');
 
 describe('ReportRunner', function() {
-  var mockPublisher;
+  var mockPublisher, doneCallback;
   beforeEach(function() {
-    mockPublisher = jasmine.createSpyObj('Publisher', ['createManifest']);
-    spyOn(reporting, 'Publisher').and.returnValue(mockPublisher);
+    mockPublisher = { createManifest: jest.fn() };
+    reporting.Publisher = jest.fn().mockImplementation(function() { return mockPublisher; });
+    doneCallback = jest.fn().mockName('done');
   });
 
-  it('executes the task function spreading the array of parameters preceeded by the report publisher', function() {
+  it('executes the task function passing the report publisher', function() {
     var task = {
-      taskFunction: jasmine.createSpy('taskFunction')
+      run: jest.fn().mockName('taskFunction')
     };
-    new ReportRunner(task).run(['test_param1', 'test_param2']);
+    new ReportRunner(task).run(doneCallback);
 
-    expect(task.taskFunction).toHaveBeenCalledWith(mockPublisher, 'test_param1', 'test_param2');
+    expect(task.run).toHaveBeenCalledWith(mockPublisher);
   });
 
   describe('when the output of the task function is a stream', function() {
-    it('creates the manifest after the stream is ended', function(done) {
-      var output = new stream.PassThrough();
+    it('creates the manifest after the stream is ended', function() {
+      return new Bluebird(function(done) {
+        var output = new stream.PassThrough();
 
-      new ReportRunner({
-        taskFunction: function() { return output; }
-      }).run('test_param1', 'test_param2').then(function() {
-        expect(mockPublisher.createManifest).toHaveBeenCalled();
-        done();
+        new ReportRunner({ run: function() { return output; }})
+          .run(doneCallback)
+          .then(function() {
+            expect(mockPublisher.createManifest).toHaveBeenCalledWith(undefined);
+            done();
+          })
+          .catch(done.fail);
+
+        output.push('123');
+        output.end();
       });
-
-      output.push('123'); //TODO: mock utils.streamToPromise
-      output.end();
     });
   });
 
   describe('when the output of the task function is a simple value', function() {
-    it('creates the manifest after the task function is completed', function(done) {
-      new ReportRunner({
-        taskFunction: function() { return 123; }
-      }).run('test_param1', 'test_param2').then(function() {
-        expect(mockPublisher.createManifest).toHaveBeenCalled();
-        done();
+    it('creates the manifest after the task function is completed', function() {
+      return new Bluebird(function(done) {
+        new ReportRunner({
+          run: function() { return 123; }
+        }).run(doneCallback)
+          .then(function() {
+            expect(mockPublisher.createManifest).toHaveBeenCalledWith(123);
+            done();
+          })
+          .catch(done.fail);
       });
     });
   });
 
   describe('when the output of the task function is a promise', function() {
-    it('creates the manifest after the task promise is fulfilled', function(done) {
-      new ReportRunner({
-        taskFunction: function() { return Q(123); }
-      }).run('test_param1', 'test_param2').then(function() {
-        expect(mockPublisher.createManifest).toHaveBeenCalled();
-        done();
+    it('creates the manifest after the task promise is fulfilled', function() {
+      return new Bluebird(function(done) {
+        new ReportRunner({
+          run: jest.fn().mockResolvedValue('promise result')
+        }).run(doneCallback)
+          .then(function() {
+            expect(mockPublisher.createManifest).toHaveBeenCalledWith('promise result');
+            done();
+          })
+          .catch(done.fail);
       });
     });
 
-    it('does not create the manifest if the task promise is rejected', function(done) {
-      new ReportRunner({
-        taskFunction: function() { return Q.reject(); }
-      }).run('test_param1', 'test_param2').then(function() {
-        expect(mockPublisher.createManifest).not.toHaveBeenCalled();
-        done();
+    it('does not create the manifest if the task promise is rejected', function() {
+      return new Bluebird(function(done) {
+        new ReportRunner({
+          run: jest.fn().mockRejectedValue(new Error())
+        }).run(doneCallback)
+          .then(function() {
+            expect(mockPublisher.createManifest).not.toHaveBeenCalled();
+            done();
+          })
+          .catch(done.fail);
       });
     });
   });
 
   describe('when a task function is not defined', function() {
-    it('returns without creating a manifest', function() {
-      var output = new ReportRunner({}).run('test_param1', 'test_param2');
+    it('returns without creating a manifest and executes the callback', function() {
+      var output = new ReportRunner({}).run(doneCallback);
 
       expect(output).toBeUndefined();
       expect(mockPublisher.createManifest).not.toHaveBeenCalled();
+      expect(doneCallback).toHaveBeenCalled();
     });
   });
 
   describe('when the task function throws an error', function() {
-    it('returns without creating a manifest', function() {
+    it('returns without creating a manifest executing the callback', function() {
       var output = new ReportRunner({
-        taskFunction: function() { throw 'something is wrong'; }
-      }).run('test_param1', 'test_param2');
+        run: function() { throw new Error('something is wrong'); }
+      }).run(doneCallback);
 
       expect(output).toBeUndefined();
       expect(mockPublisher.createManifest).not.toHaveBeenCalled();
+      expect(doneCallback).toHaveBeenCalled();
     });
   });
 });

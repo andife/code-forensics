@@ -1,9 +1,8 @@
-/*eslint-disable max-lines*/
 var _      = require('lodash'),
     moment = require('moment');
 
-var TimeSplitter      = require_src('models/time_interval/time_splitter'),
-    CFValidationError = require_src('models/validation_error');
+var TimeSplitter      = require('models/time_interval/time_splitter'),
+    CFValidationError = require('runtime/errors').CFValidationError;
 
 describe('TimeSplitter', function() {
   var assertTimePeriod = function(period, from, to) {
@@ -15,12 +14,13 @@ describe('TimeSplitter', function() {
     it('throws an error if an invalid timeSplit is given', function() {
       expect(function() {
         new TimeSplitter(moment('2014-01-01'), moment('2015-12-31')).split('wrong-timeSplit');
-      }).toThrowError(CFValidationError, 'Invalid timeSplit value: wrong-timeSplit');
+      }).toThrow(CFValidationError, 'Invalid timeSplit value: wrong-timeSplit');
     });
 
     it('does not split if no timeSplit is given', function() {
       var intervals = new TimeSplitter(moment('2015-01-01'), moment('2015-12-31')).split();
-      expect(intervals.length).toEqual(1);
+
+      expect(intervals).toHaveLength(1);
 
       assertTimePeriod(intervals[0],
         { years: 2015, months: 0, date: 1 },
@@ -30,7 +30,7 @@ describe('TimeSplitter', function() {
 
     it('splits by year', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(2);
+        expect(periods).toHaveLength(2);
         assertTimePeriod(periods[0],
           { years: 2014, months: 2, date: 1 },
           { years: 2014, months: 11, date: 31 }
@@ -46,7 +46,7 @@ describe('TimeSplitter', function() {
 
     it('splits by quarter', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(4);
+        expect(periods).toHaveLength(4);
 
         assertTimePeriod(periods[0],
           { years: 2014, months: 1, date: 1 },
@@ -71,7 +71,7 @@ describe('TimeSplitter', function() {
 
     it('splits by month', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2014, months: 2, date: 5 },
@@ -92,7 +92,7 @@ describe('TimeSplitter', function() {
 
     it('splits by week', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2016, months: 9, date: 15 },
@@ -113,7 +113,7 @@ describe('TimeSplitter', function() {
 
     it('splits by day', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(4);
+        expect(periods).toHaveLength(4);
 
         assertTimePeriod(periods[0],
           { years: 2014, months: 0, date: 1 },
@@ -141,7 +141,7 @@ describe('TimeSplitter', function() {
   describe('custom period splitting', function() {
     it('splits every one year or 12 months', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2012, months: 1, date: 7 },
@@ -163,7 +163,7 @@ describe('TimeSplitter', function() {
 
     it('splits every three years', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(2);
+        expect(periods).toHaveLength(2);
 
         assertTimePeriod(periods[0],
           { years: 2012, months: 1, date: 7 },
@@ -180,7 +180,7 @@ describe('TimeSplitter', function() {
 
     it('splits every two quarters or six months', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2014, months: 1, date: 7 },
@@ -202,7 +202,7 @@ describe('TimeSplitter', function() {
 
     it('splits every three months', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(5);
+        expect(periods).toHaveLength(5);
 
         assertTimePeriod(periods[0],
           { years: 2014, months: 1, date: 7 },
@@ -231,7 +231,7 @@ describe('TimeSplitter', function() {
 
     it('splits every two months', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2014, months: 0, date: 10 },
@@ -252,7 +252,7 @@ describe('TimeSplitter', function() {
 
     it('splits every one month', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2014, months: 0, date: 10 },
@@ -273,7 +273,7 @@ describe('TimeSplitter', function() {
 
     it('splits every three weeks or 21 days', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2016, months: 9, date: 5 },
@@ -295,7 +295,7 @@ describe('TimeSplitter', function() {
 
     it('splits every one week or seven days', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(3);
+        expect(periods).toHaveLength(3);
 
         assertTimePeriod(periods[0],
           { years: 2016, months: 9, date: 5 },
@@ -317,7 +317,7 @@ describe('TimeSplitter', function() {
 
     it('splits every four days', function() {
       var assertPeriods = function(periods) {
-        expect(periods.length).toBe(4);
+        expect(periods).toHaveLength(4);
 
         assertTimePeriod(periods[0],
           { years: 2016, months: 10, date: 5 },

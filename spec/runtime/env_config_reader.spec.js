@@ -1,8 +1,9 @@
-var EnvConfigReader = require_src('runtime/env_config_reader');
+var EnvConfigReader = require('runtime/env_config_reader');
 
 describe('EnvConfigReader', function() {
   beforeEach(function() {
     delete process.env.MAX_CONCURRENCY;
+    delete process.env.SERIAL_PROCESSING;
     delete process.env.COMMAND_DEBUG;
     delete process.env.LOG_DISABLED;
     delete process.env.SERVER_PORT;
@@ -13,19 +14,26 @@ describe('EnvConfigReader', function() {
     it('returns an object with default values', function() {
       expect(new EnvConfigReader().getConfiguration()).toEqual({
         maxConcurrency: undefined,
-        debugMode: undefined,
-        logEnabled: undefined,
+        debugMode: false,
+        logEnabled: true,
         serverPort: undefined,
-        codeMaat: { options: undefined }
+        codeMaat: { options: {} }
       });
     });
   });
 
   describe('when environment variables exist', function() {
-    it('returns an object with a max concurrency value', function() {
+    it('returns an object with a max concurrency value based on MAX_CONCURRENCY', function() {
       process.env.MAX_CONCURRENCY = '3';
 
       expect(new EnvConfigReader().getConfiguration().maxConcurrency).toEqual(3);
+    });
+
+    it('returns an object with a max concurrency equal to 1', function() {
+      process.env.MAX_CONCURRENCY = '3';
+      process.env.SERIAL_PROCESSING = 'true';
+
+      expect(new EnvConfigReader().getConfiguration().maxConcurrency).toEqual(1);
     });
 
     it('returns an object with a debug mode value', function() {
@@ -40,7 +48,7 @@ describe('EnvConfigReader', function() {
       expect(new EnvConfigReader().getConfiguration().logEnabled).toBe(false);
     });
 
-    it('returns an object with a log enabled value', function() {
+    it('returns an object with a server port value', function() {
       process.env.SERVER_PORT = '1234';
 
       expect(new EnvConfigReader().getConfiguration().serverPort).toEqual(1234);

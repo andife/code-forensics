@@ -1,34 +1,41 @@
-var _ = require('lodash');
-
-var Helper   = require_src('tasks/helpers/code_maat_helper'),
-    codeMaat = require_src('analysers/code_maat');
+var Helper   = require('tasks/helpers/code_maat_helper'),
+    codeMaat = require('analysers/code_maat');
 
 describe('CodeMaatHelper', function() {
+  var subject, mockAnalyser;
   beforeEach(function() {
-    this.subject = new Helper({});
-    this.mockAnalyser =  {
-      fileAnalysisStream: jasmine.createSpy().and.returnValue('test_result')
+    subject = new Helper({});
+    mockAnalyser =  {
+      isSupported: jest.fn().mockReturnValue('support-info'),
+      fileAnalysisStream: jest.fn().mockReturnValue('test_result')
     };
-    spyOn(codeMaat, 'analyser').and.returnValue(this.mockAnalyser);
+    codeMaat.analyser = jest.fn().mockReturnValue(mockAnalyser);
   });
 
-  _.each({
-    revisionsAnalysis:        'revisions',
-    sumCouplingAnalysis:      'soc',
-    temporalCouplingAnalysis: 'coupling',
-    authorsAnalysis:          'authors',
-    mainDevAnalysis:          'main-dev',
-    effortAnalysis:           'entity-effort',
-    codeOwnershipAnalysis:    'entity-ownership',
-    communicationAnalysis:    'communication',
-    absoluteChurnAnalysis:    'absolute-churn',
-    entityChurnAnalysis:      'entity-churn'
-  }, function(instruction, analysis) {
+  Object.entries({
+    'revisions': 'revisionsAnalysis',
+    'summary': 'summaryAnalysis',
+    'soc': 'sumCouplingAnalysis',
+    'coupling': 'temporalCouplingAnalysis',
+    'authors': 'authorsAnalysis',
+    'main-dev': 'mainDevAnalysis',
+    'entity-effort': 'effortAnalysis',
+    'entity-ownership': 'codeOwnershipAnalysis',
+    'communication': 'communicationAnalysis',
+    'abs-churn': 'absoluteChurnAnalysis',
+    'entity-churn': 'entityChurnAnalysis'
+  }).forEach(function(entry) {
+    var instruction = entry[0], analysis = entry[1];
+    it('returns information on vcs support', function() {
+      expect(subject[analysis].isSupported()).toEqual('support-info');
+    });
+
     it('returns the codemaat analysis of the input file', function() {
-      var result = this.subject[analysis]('test_input', 'test_options');
+      var result = subject[analysis]('test_log_input', 'test_group_input', 'test_options');
 
       expect(result).toEqual('test_result');
-      expect(this.mockAnalyser.fileAnalysisStream).toHaveBeenCalledWith('test_input', 'test_options');
+      expect(codeMaat.analyser).toHaveBeenCalledWith(instruction);
+      expect(mockAnalyser.fileAnalysisStream).toHaveBeenCalledWith('test_log_input', 'test_group_input', 'test_options');
     });
   });
 });

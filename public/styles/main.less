@@ -1,6 +1,6 @@
 /*
  * code-forensics
- * Copyright (C) 2016-2017 Silvio Montanari
+ * Copyright (C) 2016-2019 Silvio Montanari
  * Distributed under the GNU General Public License v3.0
  * see http://www.gnu.org/licenses/gpl.html
  */
@@ -31,7 +31,7 @@ body {
 
   .left-column {
     float: left;
-    line-height: 24px;
+    line-height: 1.5em;
     margin: 5px 0 0 5px;
     width: 200px;
 
@@ -42,29 +42,47 @@ body {
 
   .report-info {
     margin-left: 210px;
+    margin-bottom: 10px;
     .title {
-      font-size: 24px;
+      font-size: 1.5em;
     }
     .description {
-      font-size: 18px;
+      font-size: 1.1em;
       font-style: italic;
     }
     .time-period {
-      margin: 10px 0 10px 0;
-      font-size: 16px;
+      margin-top: 5px;
+      font-size: 1em;
     }
   }
 
   .report-controls {
-    font-size: 10px;
+    font-size: 0.65em;
     float: left;
     min-width: 200px;
+
+    .control-block {
+      margin-bottom: 20px;
+    }
+
+    .control-title {
+      font-size: 1.5em;
+      font-weight: bold;
+    }
+
+    .diagram-name {
+      font-size: 1.4em;
+      display: block;
+      margin-top: 10px;
+    }
 
     .diagram-selection {
       border: 1px solid;
       border-radius: 5px;
+      margin: 10px 0;
       max-height: 210px;
       overflow-y: auto;
+
       input {
         visibility: hidden;
         position: absolute;
@@ -76,17 +94,16 @@ body {
         }
       }
 
-      label {
-        background-color: #F9F9F9;
-        border-radius: .25em;
-        color: #000000;
-        cursor: pointer;
+      .diagram-selection-name {
         display: block;
+        cursor: pointer;
         font-size: 1.2em;
         line-height: 24px;
-        border:1px solid #FFFFFF;
-        padding: 0 5px;
+        background-color: #F9F9F9;
         text-align: center;
+        border:1px solid #FFFFFF;
+        border-radius: .25em;
+        padding: 0 5px;
         &:hover {
           background-color: #DDDDDD;
           color: #666666;
@@ -95,21 +112,26 @@ body {
     }
   }
 
+  .no-graphs-msg {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 1.5em;
+  }
+
   .graph-content {
     margin-left: 210px;
     background-color: #F1F1F1;
-    border: 1px solid #C0C0C0;
     position: relative;
 
     .graph-container {
-      margin-top: 10px;
       position: absolute;
       width: 100%;
       height: 100%;
       opacity: 0;
       z-index: -10;
-      display: flex;
+      display: none;
       &.showing {
+        display: flex;
         opacity: 1;
         z-index: 10;
       }

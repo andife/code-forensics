@@ -1,18 +1,30 @@
-var stream = require('stream'),
-    map    = require("through2-map"),
-    moment = require('moment');
+var stream   = require('stream'),
+    map      = require('through2-map'),
+    Bluebird = require('bluebird'),
+    moment   = require('moment');
 
-var RevisionHelper = require_src('tasks/helpers/revision_helper'),
-    vcsSupport     = require_src('vcs_support'),
-    pp             = require_src('parallel_processing'),
-    utils          = require_src('utils');
+var RevisionHelper = require('tasks/helpers/revision_helper'),
+    vcs            = require('vcs');
 
 describe('RevisionHelper', function() {
-  beforeEach(function() {
-    this.mockVcs = jasmine.createSpyObj('vcs adapter', ['revisions', 'showRevisionStream']);
-    spyOn(vcsSupport, 'adapter').and.returnValue(this.mockVcs);
+  var mockVcs, subject, analyser;
 
-    this.subject = new RevisionHelper({
+  beforeEach(function() {
+    mockVcs = {
+      revisions: jest.fn(),
+      showRevisionStream: jest.fn()
+    };
+    vcs.client = jest.fn().mockReturnValue(mockVcs);
+    analyser = {
+      sourceAnalysisStream: jest.fn().mockName('sourceAnalysisStream')
+      .mockImplementation(function() {
+        return map.obj(function(obj) {
+          return { result: obj.analysis + '-result' };
+        });
+      })
+    };
+
+    subject = new RevisionHelper({
       repository: 'test_repository',
       parameters: { targetFile: '/test/file' },
       dateRange: 'date-range'
@@ -20,25 +32,16 @@ describe('RevisionHelper', function() {
   });
 
   describe('.revisionAnalysisStream()', function() {
-    var analyser = {
-      sourceAnalysisStream: function() {
-        return map.obj(function(obj) {
-          return { result: obj.analysis + '-result' };
-        });
-      }
-    };
-
-    it('creates a vcs Adapter object with the repository root', function() {
-      expect(vcsSupport.adapter).toHaveBeenCalledWith('test_repository');
+    it('creates a vcs client object with the context parameters', function() {
+      expect(vcs.client).toHaveBeenCalledWith('test_repository');
     });
 
     describe('when no revisions exist', function() {
       beforeEach(function() {
-        this.mockVcs.revisions.and.returnValue([]);
+        mockVcs.revisions.mockReturnValue([]);
       });
 
       it('throws an error', function() {
-        var subject = this.subject;
         expect(function() {
           subject.revisionAnalysisStream(analyser);
         }).toThrow('No revisions data found');
@@ -47,43 +50,39 @@ describe('RevisionHelper', function() {
 
     describe('when revisions exist', function() {
       beforeEach(function() {
-        this.mockVcs.revisions.and.returnValue(['revision1', 'revision2']);
-
-        this.mockStreamCollector = jasmine.createSpyObj('objectStreamCollector', ['mergeAll']);
-        spyOn(pp, 'objectStreamCollector').and.returnValue(this.mockStreamCollector);
+        mockVcs.revisions.mockReturnValue([
+          { revisionId: '123', date: '2010-01-01T00:00:00.000Z' },
+          { revisionId: '456', date: '2010-01-05T00:00:00.000Z' }
+        ]);
       });
 
       it('returns the stream aggregate of all the revisions', function() {
-        spyOn(utils.arrays, 'arrayToFnFactory').and.returnValue('revisions');
-        this.mockStreamCollector.mergeAll.and.returnValue('final stream');
+        return new Bluebird(function(done) {
+          var revisionStream1 = new stream.PassThrough({ objectMode: true });
+          var revisionStream2 = new stream.PassThrough({ objectMode: true });
+          mockVcs.showRevisionStream
+            .mockReturnValueOnce(revisionStream1)
+            .mockReturnValueOnce(revisionStream2);
 
-        expect(this.subject.revisionAnalysisStream(analyser)).toEqual('final stream');
+          var data = [];
+          subject.revisionAnalysisStream(analyser)
+          .on('data', function(obj) { data.push(obj); })
+          .on('end', function() {
+            expect(mockVcs.revisions).toHaveBeenCalledWith('/test/file', 'date-range');
+            expect(mockVcs.showRevisionStream).toHaveBeenCalledWith('123', '/test/file');
+            expect(mockVcs.showRevisionStream).toHaveBeenCalledWith('456', '/test/file');
+            expect(data).toEqual([
+              { revision: '123', date: moment('2010-01-01T00:00:00.000Z'), result: 'test-analysis1-result' },
+              { revision: '456', date: moment('2010-01-05T00:00:00.000Z'), result: 'test-analysis2-result' }
+            ]);
+            done();
+          });
 
-        expect(this.mockVcs.revisions).toHaveBeenCalledWith('/test/file', 'date-range');
-        expect(utils.arrays.arrayToFnFactory).toHaveBeenCalledWith(['revision1', 'revision2'], jasmine.any(Function));
-        expect(this.mockStreamCollector.mergeAll).toHaveBeenCalledWith('revisions');
-      });
-
-      it('collects an analysis result stream for each individual revision', function(done) {
-        var streamAnalysisFn;
-        spyOn(utils.arrays, 'arrayToFnFactory').and.callFake(function(revisions, fn) {
-          streamAnalysisFn = fn;
+          revisionStream1.write({ analysis: 'test-analysis1' });
+          revisionStream1.end();
+          revisionStream2.write({ analysis: 'test-analysis2' });
+          revisionStream2.end();
         });
-
-        var revisionStream = new stream.PassThrough({ objectMode: true });
-        this.mockVcs.showRevisionStream.and.returnValue(revisionStream);
-
-        this.subject.revisionAnalysisStream(analyser);
-        streamAnalysisFn({ revisionId: '123', date: '2014-01-31' })
-          .on('data', function(obj) {
-            expect(obj.revision).toEqual('123');
-            expect(obj.date.isSame(moment('2014-01-31'), 'day')).toBeTruthy();
-            expect(obj.result).toEqual('123-test-analysis-result');
-          })
-          .on('end', done);
-
-        revisionStream.write({ analysis: '123-test-analysis' });
-        revisionStream.end();
       });
     });
   });

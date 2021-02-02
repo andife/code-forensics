@@ -1,70 +1,127 @@
-var _      = require('lodash'),
-    Path   = require('path'),
-    fs     = require('fs'),
-    stream = require('stream');
+/* eslint jest/expect-expect: [1, { "assertFunctionNames": ["expect", "taskOutput.assert*"] }] */
+var _        = require('lodash'),
+    stream   = require('stream'),
+    Bluebird = require('bluebird');
 
-var codeMaatReportTasks = require_src('tasks/code_maat_reports_tasks'),
-    codeMaat            = require_src('analysers/code_maat'),
-    command             = require_src('command');
+var codeMaatReportTasks = require('tasks/code_maat_reports_tasks'),
+    codeMaat            = require('analysers/code_maat'),
+    command             = require('command');
+
+var taskHelpers = require('../jest_tasks_helpers');
 
 describe('CodeMaat report tasks', function() {
-  var taskFunctions, tempDir, repoDir;
+  var runtime;
 
-  var assertTaskReport = function(exampleDescription, analysis, taskName, reportFilename) {
+  var assertReport = function(exampleDescription, taskName, functionName) {
     describe(taskName, function() {
-      it(exampleDescription, function(done) {
-        var analysisStream = new stream.PassThrough({ objectMode: true });
-        spyOn(codeMaat, 'analyser').and.returnValue(
-          { fileAnalysisStream: function() { return analysisStream; } }
+      var analysisStream;
+
+      beforeEach(function() {
+        analysisStream = new stream.PassThrough({ objectMode: true });
+        codeMaat.analyser = jest.fn().mockReturnValue(
+          {
+            fileAnalysisStream: function() { return analysisStream; },
+            isSupported: _.stubTrue
+          }
         );
+      });
 
-        taskFunctions[taskName]()
-          .then(function() {
-            var reportContent = fs.readFileSync(Path.join(tempDir, reportFilename));
-            var report = JSON.parse(reportContent.toString());
-            expect(report).toEqual([
-              { path: 'test_file1', testData: 123 },
-              { path: 'test_file2', testData: 456 }
-            ]);
+      describe('as a Task', function() {
+        it(exampleDescription, function() {
+          return new Bluebird(function(done) {
+            runtime.executePromiseTask(taskName)
+              .then(function(taskOutput) {
+                return taskOutput.assertTempReport(taskName + '.json');
+              })
+              .then(function() { done(); })
+              .catch(done.fail);
 
-            done();
-          })
-          .catch(function(err) {
-            fail(err);
+            analysisStream.push({ path: 'test_file1', testData: 123 });
+            analysisStream.push({ path: 'test_file2', testData: 456 });
+            analysisStream.end();
           });
+        });
+      });
 
-        expect(codeMaat.analyser).toHaveBeenCalledWith(analysis);
+      describe('as a Function', function() {
+        it(exampleDescription, function() {
+          return new Bluebird(function(done) {
+            runtime.executePromiseFunction(functionName)
+              .then(function(taskOutput) {
+                return taskOutput.assertTempReport(taskName + '.json');
+              })
+              .then(function() { done(); })
+              .catch(done.fail);
 
-        analysisStream.push({ path: 'test_file1', testData: 123 });
-        analysisStream.push({ path: 'test_file2', testData: 456 });
-        analysisStream.push({ path: 'test_invalid_file', testData: 789 });
-        analysisStream.end();
+            analysisStream.push({ path: 'test_file1', testData: 123 });
+            analysisStream.push({ path: 'test_file2', testData: 456 });
+            analysisStream.end();
+          });
+        });
+      });
+    });
+  };
+
+  var assertMissingReport = function(taskName, functionName) {
+    describe(taskName, function() {
+      beforeEach(function() {
+        codeMaat.analyser = jest.fn().mockReturnValue(
+          { isSupported: _.stubFalse }
+        );
+      });
+
+      describe('as a Task', function() {
+        it('does not write a report', function() {
+          return runtime.executePromiseTask(taskName).then(function(taskOutput) {
+            return taskOutput.assertMissingTempReport(taskName + '.json');
+          });
+        });
+      });
+
+      describe('as a Function', function() {
+        it('does not write a report', function() {
+          return runtime.executePromiseFunction(functionName).then(function(taskOutput) {
+            return taskOutput.assertMissingTempReport(taskName + '.json');
+          });
+        });
       });
     });
   };
 
   beforeEach(function() {
-    tempDir = this.tasksWorkingFolders.tempDir;
-    repoDir = this.tasksWorkingFolders.repoDir;
-
-    _.each(['test_file1', 'test_file2', 'test_invalid_file'], function(f) {
-      fs.writeFileSync(Path.join(repoDir, f), '');
-    });
-    spyOn(command.Command, 'ensure');
-    taskFunctions = this.tasksSetup(codeMaatReportTasks, {
-      repository: { excludePaths: ['test_invalid_file'] }
-    });
+    command.Command.ensure = jest.fn();
+    runtime = taskHelpers.createRuntime('codemaat_report_tasks', codeMaatReportTasks);
   });
 
   afterEach(function() {
-    this.clearRepo();
-    this.clearTemp();
+    return runtime.clear();
   });
 
-  assertTaskReport('writes a report on the number of revisions for each valid file', 'revisions', 'revisions-report', 'revisions-report.json');
-  assertTaskReport('writes a report on the effort distribution for each file', 'entity-effort', 'effort-report', 'effort-report.json');
-  assertTaskReport('writes a report on the number of authors and revisions for each file', 'authors', 'authors-report', 'authors-report.json');
-  assertTaskReport('writes a report on the main developers (by revisions) for each file', 'main-dev', 'main-dev-report', 'main-dev-report.json');
-  assertTaskReport('writes a report on the developer ownership (by added lines of code) for each file', 'entity-ownership', 'code-ownership-report', 'code-ownership-report.json');
-});
+  describe('task dependencies', function() {
+    it.each([
+      'revisions-report',
+      'effort-report',
+      'authors-report',
+      'main-dev-report',
+      'code-ownership-report'
+    ])('has the required dependencies', function(taskName) {
+      runtime.assertTaskDependencies(taskName, ['vcsLogDump']);
+    });
+  });
 
+  describe('with any supported VCS type', function() {
+    assertReport('writes a report on the number of revisions for each valid file', 'revisions-report', 'revisionsReport');
+    assertReport('writes a report on the effort distribution for each file', 'effort-report', 'effortReport');
+    assertReport('writes a report on the number of authors and revisions for each file', 'authors-report', 'authorsReport');
+    assertReport('writes a report on the main developers (by revisions) for each file', 'main-dev-report', 'mainDevReport');
+    assertReport('writes a report on the developer ownership (by added lines of code) for each file', 'code-ownership-report', 'codeOwnershipReport');
+  });
+
+  describe('with an unsupported VCS type', function() {
+    assertMissingReport('revisions-report', 'revisionsReport');
+    assertMissingReport('effort-report', 'effortReport');
+    assertMissingReport('authors-report', 'authorsReport');
+    assertMissingReport('main-dev-report', 'mainDevReport');
+    assertMissingReport('code-ownership-report', 'codeOwnershipReport');
+  });
+});
